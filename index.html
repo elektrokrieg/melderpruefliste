@@ -300,7 +300,7 @@ footer.app{text-align:center;font-size:11px;color:#9aa1ab;padding:18px 0 4px;}
     <p>Kunde auswählen, um die Melderliste zu laden.</p>
   </div>
 </main>
-<footer class="app">Elektro Krieg Meiningen · Melder-Prüfliste v1.2.20</footer>
+<footer class="app">Elektro Krieg Meiningen · Melder-Prüfliste v1.2.21</footer>
 <div id="toast" class="toast"></div>
 
 <div id="lockModalBack" class="modal-back" style="display:none;">
@@ -382,7 +382,7 @@ function setSyncStatus(kind,text){var el=document.getElementById('syncStatus');v
 function pushCustomerNow(name,label){if(!ghIsConfigured())return Promise.resolve();var path='data/'+slugify(name)+'.json';var rows=overrides[name]||(function(){var p=name.split('||');return(LOCATIONS[p[0]]&&LOCATIONS[p[0]][p[1]])||[];})();var payload={status:rowsStatusMap(rows),locked:locked[name]||[],updated:new Date().toISOString()};setSyncStatus('busy','Speichere …');function attempt(t){return ghPutFile(path,payload,label+' – '+name,ghSha[name]).then(function(s){ghSha[name]=s;persistGhSha();setSyncStatus('ok','Synchron');}).catch(function(err){if(err.status===409&&t>0){return ghGetFile(path).then(function(result){var rs=result?(result.payload.status||{}):{};var rl=result?(result.payload.locked||[]):[];ghSha[name]=result?result.sha:null;payload.status=mergeStatusMaps(payload.status,rs);payload.locked=mergeLockedArrays(payload.locked,rl);return attempt(t-1);});}setSyncStatus('err','Sync fehlgeschlagen');throw err;});}return attempt(3);}
 var pushTimers={};
 function schedulePush(name){if(!ghIsConfigured())return;if(pushTimers[name])clearTimeout(pushTimers[name]);pushTimers[name]=setTimeout(function(){pushCustomerNow(name,'Aktualisierung').catch(function(){});},3000);}
-function pullAndMergeCustomer(name){if(!ghIsConfigured()){setSyncStatus('off','Nicht verbunden – nur lokal');return Promise.resolve();}var path='data/'+slugify(name)+'.json';setSyncStatus('busy','Synchronisiere …');return ghGetFile(path).then(function(result){var rs={},rl=[];if(result){ghSha[name]=result.sha;rs=result.payload.status||{};rl=result.payload.locked||[];}else{ghSha[name]=null;}persistGhSha();var rows=overrides[name]||(function(){var p=name.split('||');return((LOCATIONS[p[0]]&&LOCATIONS[p[0]][p[1]])||[]).map(function(r){return r.slice();});})();var before=JSON.stringify(rowsStatusMap(rows));applyStatusMapToRows(rows,rs);var after=JSON.stringify(rowsStatusMap(rows));var ml=mergeLockedArrays(locked[name],rl);var lc=JSON.stringify((locked[name]||[]).slice().sort())!==JSON.stringify(ml.slice().sort());locked[name]=ml;overrides[name]=rows;persistOverrides();persistLocked();if(name===state.customer)state.rows=rows;var changed=(before!==after)||lc||!result;if(changed){return pushCustomerNow(name,'Sync').then(function(){if(name===state.customer)renderAll();});}else{setSyncStatus('ok','Synchron');}}).catch(function(err){console.error(err);setSyncStatus('err','Offline / Fehler');});}
+function pullAndMergeCustomer(name){if(!ghIsConfigured()){setSyncStatus('off','Nicht verbunden – nur lokal');return Promise.resolve();}var path='data/'+slugify(name)+'.json';setSyncStatus('busy','Synchronisiere …');return ghGetFile(path).then(function(result){var rs={},rl=[];if(result){ghSha[name]=result.sha;rs=result.payload.status||{};rl=result.payload.locked||[];}else{ghSha[name]=null;}persistGhSha();var p=name.split('||');var rows=((LOCATIONS[p[0]]&&LOCATIONS[p[0]][p[1]])||[]).map(function(r){return r.slice();});if(overrides[name]&&overrides[name].length>0){applyStatusMapToRows(rows,rowsStatusMap(overrides[name]));}var before=JSON.stringify(rowsStatusMap(rows));applyStatusMapToRows(rows,rs);var after=JSON.stringify(rowsStatusMap(rows));var ml=mergeLockedArrays(locked[name],rl);var lc=JSON.stringify((locked[name]||[]).slice().sort())!==JSON.stringify(ml.slice().sort());locked[name]=ml;overrides[name]=rows;persistOverrides();persistLocked();if(name===state.customer)state.rows=rows;var changed=(before!==after)||lc||!result;if(changed){return pushCustomerNow(name,'Sync').then(function(){if(name===state.customer)renderAll();});}else{setSyncStatus('ok','Synchron');}}).catch(function(err){console.error(err);setSyncStatus('err','Offline / Fehler');});}
 function ghTestConnection(owner,repo,branch,token){return fetch('https://api.github.com/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo),{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}}).then(function(res){if(res.status===404)throw new Error('Repository nicht gefunden.');if(res.status===401)throw new Error('Token ungültig.');if(!res.ok)throw new Error('Fehler '+res.status);return res.json();});}
 
 // Selects
@@ -410,8 +410,9 @@ function loadCustomer(ort,name){
   var key=state.customer;
   var base=(ort&&name&&LOCATIONS[ort]&&LOCATIONS[ort][name])?LOCATIONS[ort][name]:[];
   var saved=overrides[key];
-  if(saved&&saved.length===base.length){state.rows=saved.map(function(r){return r.slice();});}
-  else{state.rows=base.map(function(r){return r.slice();});}
+  // Always use fresh base data for structure (typ/text may have changed); only carry over status bits
+  state.rows=base.map(function(r){return r.slice();});
+  if(saved&&saved.length>0){var savedBits=rowsStatusMap(saved);applyStatusMapToRows(state.rows,savedBits);}
   ['quickCard','lockCard','evtCard','tableCard'].forEach(function(id){document.getElementById(id).style.display=key?'':'none';});
   document.getElementById('emptyState').style.display=key?'none':'';
   document.getElementById('progressWrap').style.display=key?'':'none';

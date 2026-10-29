@@ -1,4 +1,4 @@
-/* Melder-Prüfliste · Service Worker v1.2.20 */
+/* Melder-Prüfliste · Service Worker v1.2.21 */
 var CACHE_PREFIX='melderpruefliste-';
 var VERSION_URL='./version.json';
 var ASSETS=['./', './index.html','./manifest.json','./icon-32.png','./icon-180.png','./icon-192.png','./icon-512.png'];
