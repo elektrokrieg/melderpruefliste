@@ -194,6 +194,7 @@ footer.app{text-align:center;font-size:11px;color:#9aa1ab;padding:18px 0 4px;}
       <h1>Melder-Prüfliste</h1>
       <div class="sub">Brandmeldeanlagen · Quartalsprüfung</div>
     </div>
+    <button id="wartungBtn" class="gear-btn" title="Wartungs-App öffnen" aria-label="Wartungs-App" style="margin-right:4px;font-size:14px;">🔧</button>
     <button id="settingsBtn" class="gear-btn" title="Einstellungen" aria-label="Einstellungen">⚙️</button>
   </div>
 </header>
@@ -300,7 +301,7 @@ footer.app{text-align:center;font-size:11px;color:#9aa1ab;padding:18px 0 4px;}
     <p>Kunde auswählen, um die Melderliste zu laden.</p>
   </div>
 </main>
-<footer class="app">Elektro Krieg Meiningen · Melder-Prüfliste v1.2.22</footer>
+<footer class="app">Elektro Krieg Meiningen · Melder-Prüfliste v1.2.23</footer>
 <div id="toast" class="toast"></div>
 
 <div id="lockModalBack" class="modal-back" style="display:none;">
@@ -332,7 +333,15 @@ footer.app{text-align:center;font-size:11px;color:#9aa1ab;padding:18px 0 4px;}
     <div class="field-wrap"><label class="field" for="ghToken">Access Token</label>
       <input type="password" id="ghToken" placeholder="github_pat_…" autocapitalize="off" autocorrect="off"></div>
     <div id="settingsTestResult" class="settings-test-result"></div>
-    <div class="modal-actions" style="justify-content:space-between;margin-top:6px;">
+    <hr style="border:none;border-top:1px solid var(--border);margin:14px 0 10px;">
+    <h3 style="margin:0 0 6px;">App-Links</h3>
+    <div class="settings-note">URLs der anderen Apps (optional – für die 🔧-Schaltfläche).</div>
+    <div class="field-wrap"><label class="field" for="urlWartung">Wartungs-App URL</label>
+      <input type="url" id="urlWartung" placeholder="https://…/Wartung/" autocapitalize="off" autocorrect="off"></div>
+    <div class="modal-actions" style="margin-top:6px;">
+      <button id="urlSave" class="btn btn-primary btn-small">URL speichern</button>
+    </div>
+    <div class="modal-actions" style="justify-content:space-between;margin-top:12px;">
       <button id="settingsDisconnect" class="btn btn-ghost btn-small">Trennen</button>
       <div style="display:flex;gap:8px;">
         <button id="settingsTest" class="btn btn-ghost btn-small">Verbindung testen</button>
@@ -474,6 +483,36 @@ document.getElementById('settingsTest').addEventListener('click',function(){var 
 document.getElementById('settingsSave').addEventListener('click',function(){var o=document.getElementById('ghOwner').value.trim(),r=document.getElementById('ghRepo').value.trim(),b=document.getElementById('ghBranch').value.trim()||'main',t=document.getElementById('ghToken').value.trim();var tr=document.getElementById('settingsTestResult');if(!o||!r||!t){tr.textContent='Bitte alle Felder ausfüllen.';tr.className='settings-test-result err';return;}ghConfig={owner:o,repo:r,branch:b,token:t};localStorage.setItem(GH_KEY,JSON.stringify(ghConfig));settingsModalBack.style.display='none';toast('Synchronisierung verbunden.','ok');if(state.customer)pullAndMergeCustomer(state.customer);else setSyncStatus('ok','Verbunden');});
 document.getElementById('settingsDisconnect').addEventListener('click',function(){ghConfig=null;localStorage.removeItem(GH_KEY);settingsModalBack.style.display='none';setSyncStatus('off','Nicht verbunden');toast('Synchronisierung getrennt.','');});
 setSyncStatus(ghIsConfigured()?'ok':'off',ghIsConfigured()?'Verbunden':'Nicht verbunden');
+
+// App-URLs
+var APP_URLS_KEY='bma_app_urls_v1';
+var appUrls=JSON.parse(localStorage.getItem(APP_URLS_KEY)||'{}');
+// URL-Felder beim Öffnen des Modals befüllen
+document.getElementById('settingsBtn').addEventListener('click',function(){
+  document.getElementById('urlWartung').value=appUrls.wartung||'';
+},true); // capture vor dem Modal-Open-Handler
+document.getElementById('urlSave').addEventListener('click',function(){
+  appUrls.wartung=(document.getElementById('urlWartung').value||'').trim();
+  localStorage.setItem(APP_URLS_KEY,JSON.stringify(appUrls));
+  toast('URL gespeichert.','ok');
+});
+document.getElementById('wartungBtn').addEventListener('click',function(){
+  var url=appUrls.wartung||'../Wartung/';
+  window.open(url,'_blank');
+});
+
+// URL-Parameter: ?ort=X&kunde=Y → Kunden direkt auswählen
+(function(){
+  var params=new URLSearchParams(location.search);
+  var pOrt=params.get('ort');
+  var pKunde=params.get('kunde');
+  if(pOrt&&pKunde&&LOCATIONS[pOrt]&&LOCATIONS[pOrt][pKunde]){
+    ortSelect.value=pOrt;
+    populateKunden(pOrt);
+    customerSelect.value=pKunde;
+    loadCustomer(pOrt,pKunde);
+  }
+})();
 
 // EVT / CSV / PDF import
 var evtParsed={esser:[],telenot:[]};
